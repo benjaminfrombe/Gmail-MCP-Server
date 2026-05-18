@@ -1,5 +1,7 @@
 # Gmail AutoAuth MCP Server (Actively Maintained Fork)
 
+**Installation:** just tell your Claude to install the MCP from this repo — point it at `https://github.com/ArtyMcLabin/Gmail-MCP-Server` and let it set up. Prefer manual steps? See [Installation & Authentication](#installation--authentication).
+
 [![CI](https://github.com/ArtyMcLabin/Gmail-MCP-Server/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtyMcLabin/Gmail-MCP-Server/actions/workflows/ci.yml)
 
 > **This is an actively maintained fork of [GongRzhe/Gmail-MCP-Server](https://github.com/GongRzhe/Gmail-MCP-Server).**
@@ -7,6 +9,12 @@
 > The original repository has been unmaintained since August 2025 — 7+ months with zero maintainer activity and 72+ unmerged pull requests. I use this MCP server daily as part of my Claude Code workflow and depend on it working correctly, so I picked it up.
 >
 > **Pull requests are welcome.** If you've been sitting on fixes or features with nowhere to submit them, this is the place.
+
+## Philosophy
+
+This fork is **lean and pragmatic**. It's a local stdio MCP server — you run it on your own machine, and your LLM client already has shell + filesystem access. So the threat model is "don't leak credentials to third parties, don't break the Gmail surface" — not "defend a hosted multi-tenant service". I keep dependencies minimal. I use this daily in my own Claude Code workflow — if I wouldn't run it or maintain it myself, it doesn't go in.
+
+There's a downstream fork that took this in the **maximalist** direction. I'm not affiliated with its maintainer and I don't track its security or features — use it at your own risk: **[klodr/gmail-mcp](https://github.com/klodr/gmail-mcp)**. If that's the philosophy you want, go check it out. PRs welcome here as always.
 
 ### What this fork adds
 
@@ -21,6 +29,7 @@
 - **Thread-level tools** — `get_thread`, `list_inbox_threads`, `get_inbox_with_threads`, `modify_thread` for efficient thread-based email operations in a single call
 - **CC/BCC visibility** — `read_email` now shows CC and BCC headers when present ([PR #21](https://github.com/ArtyMcLabin/Gmail-MCP-Server/pull/21) by [@panghy](https://github.com/panghy))
 - **Phishing report tools** — `report_phishing` and `batch_report_phishing` for marking messages as spam via the Gmail API ([PR #24](https://github.com/ArtyMcLabin/Gmail-MCP-Server/pull/24) by [@ShivamB25](https://github.com/ShivamB25))
+- **Draft lifecycle tools** — `send_draft`, `delete_draft`, `update_draft` close the orphan-draft gap: `send_draft` atomically sends an existing draft and removes it from Drafts (no ghost copy); `update_draft` mutates a draft in place preserving its ID (no draft pile-up across iteration loops); `delete_draft` discards an abandoned draft ([PR #30](https://github.com/ArtyMcLabin/Gmail-MCP-Server/pull/30) by [@thisisambros](https://github.com/thisisambros))
 - **Tool annotations** — MCP spec annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`) on all tools for safer LLM tool execution ([PR #14](https://github.com/ArtyMcLabin/Gmail-MCP-Server/pull/14) by [@bryankthompson](https://github.com/bryankthompson))
 - **Download email tool** — `download_email` saves emails to disk in json/eml/txt/html formats without consuming LLM context ([PR #13](https://github.com/ArtyMcLabin/Gmail-MCP-Server/pull/13) by [@icanhasjonas](https://github.com/icanhasjonas))
 
@@ -256,7 +265,8 @@ The server automatically filters available tools based on your authorized scopes
 |-------|---------------------|
 | `read_email`, `search_emails`, `download_attachment` | `gmail.readonly` or `gmail.modify` |
 | `list_email_labels` | `gmail.readonly`, `gmail.modify`, or `gmail.labels` |
-| `send_email`, `draft_email`, `reply_all` | `gmail.modify`, `gmail.compose`, or `gmail.send` |
+| `send_email`, `draft_email`, `reply_all`, `send_draft` | `gmail.modify`, `gmail.compose`, or `gmail.send` |
+| `delete_draft`, `update_draft` | `gmail.modify` or `gmail.compose` |
 | `modify_email`, `delete_email`, `batch_modify_emails`, `batch_delete_emails`, `modify_thread`, `report_phishing`, `batch_report_phishing` | `gmail.modify` |
 | `create_label`, `update_label`, `delete_label`, `get_or_create_label` | `gmail.modify` or `gmail.labels` |
 | `list_filters`, `get_filter`, `create_filter`, `delete_filter`, `create_filter_from_template` | `gmail.settings.basic` |
@@ -652,6 +662,50 @@ Reports multiple messages as phishing in efficient batches.
 }
 ```
 
+### 24. Send Draft (`send_draft`)
+Atomically sends an existing draft via `users.drafts.send` and removes it from the Drafts folder in the same operation — no orphan/ghost draft left behind. Use after a `draft_email` (or `update_draft`) once the content is confirmed.
+
+```json
+{
+  "draftId": "r-1234567890123456789"
+}
+```
+
+### 25. Update Draft (`update_draft`)
+Replaces a draft's content in place via `users.drafts.update`, **preserving the draft ID**. Critical for iteration loops (draft → user requests changes → re-draft) so Drafts doesn't accumulate N copies. Reuses the same MIME builder as `draft_email`, so attachment and threading semantics match.
+
+```json
+{
+  "draftId": "r-1234567890123456789",
+  "to": ["recipient@example.com"],
+  "subject": "Revised Report",
+  "body": "Updated draft content.",
+  "cc": ["manager@example.com"],
+  "attachments": ["/path/to/report.docx"]
+}
+```
+
+### 26. Delete Draft (`delete_draft`)
+Discards an abandoned draft via `users.drafts.delete`.
+
+```json
+{
+  "draftId": "r-1234567890123456789"
+}
+```
+
+#### Canonical draft lifecycle
+
+```
+draft_email(...) → draftId
+  ↓ (user wants changes)
+update_draft(draftId, ...)   // mutate in place, same ID
+  ↓ (user confirms)
+send_draft(draftId)          // atomic send + draft removal
+```
+
+Or abort: `delete_draft(draftId)`.
+
 ## Filter Management Features
 
 ### Filter Criteria
@@ -933,6 +987,26 @@ The server includes efficient batch processing capabilities:
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+### Branch workflow
+
+This repo uses a **two-branch model**:
+
+- **`main`** — stable. Only receives changes promoted from `experimental` after they're confirmed working. PRs are **never** merged directly into `main`.
+- **`experimental`** — staging / active development. All PRs are retargeted here and merged into `experimental` first.
+
+Lifecycle of a contribution:
+
+```
+PR opened (any base)
+  → retargeted to `experimental`
+  → security audit + review + CI
+  → merged into `experimental`
+  → soak / verify on experimental
+  → `experimental` promoted to `main` (maintainer confirms)
+```
+
+Open your PR against `experimental` when possible. If you target `main`, a maintainer will retarget it to `experimental` before merge.
 
 **CI requires README updates** — every push to `main` and every PR must include a README.md change (even a version bump or changelog entry). This ensures documentation stays current as the codebase evolves.
 
