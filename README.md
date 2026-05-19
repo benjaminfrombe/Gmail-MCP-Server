@@ -333,7 +333,7 @@ The server provides the following tools that can be used through Claude Desktop:
 
 ### 1. Send Email (`send_email`)
 
-Sends a new email immediately. Supports plain text, HTML, or multipart emails **with optional file attachments**.
+Sends a new email immediately. Supports plain text, HTML, or multipart emails **with optional file attachments and inline images**.
 
 Basic Email:
 ```json
@@ -379,6 +379,22 @@ Multipart Email Example (HTML + Plain Text):
   "mimeType": "multipart/alternative",
   "body": "Hi,\n\nJust a reminder about our meeting tomorrow at 10 AM.\n\nBest regards",
   "htmlBody": "<html><body><h1>Meeting Reminder</h1><p>Just a reminder about our <b>meeting tomorrow</b> at 10 AM.</p><p>Best regards</p></body></html>"
+}
+```
+
+**Inline Images (embedded in HTML):**
+
+Embed images inside the HTML body so they render in place, instead of arriving as separate attachments. Reference each image from `htmlBody` by its `cid`, and supply it as a file `path` or base64 `content`. Works the same way on `draft_email`, `update_draft`, and `reply_all`.
+
+```json
+{
+  "to": ["recipient@example.com"],
+  "subject": "Quarterly Report",
+  "body": "Revenue is up. See the chart below.",
+  "htmlBody": "<p>Revenue is up:</p><img src=\"cid:chart1\">",
+  "inlineImages": [
+    { "cid": "chart1", "path": "/path/to/chart.png" }
+  ]
 }
 ```
 
