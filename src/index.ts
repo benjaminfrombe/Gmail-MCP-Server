@@ -14,7 +14,7 @@ import { fileURLToPath } from 'url';
 import http from 'http';
 import open from 'open';
 import os from 'os';
-import {createEmailMessage, createEmailWithNodemailer} from "./utl.js";
+import {createEmailMessage, createEmailWithNodemailer, needsRawBuilder} from "./utl.js";
 import { createLabel, updateLabel, deleteLabel, listLabels, findLabelByName, getOrCreateLabel, GmailLabel } from "./label-manager.js";
 import { createFilter, listFilters, getFilter, deleteFilter, filterTemplates, GmailFilterCriteria, GmailFilterAction } from "./filter-manager.js";
 import { parseEmailAddresses, filterOutEmail, addRePrefix, buildReferencesHeader, buildReplyAllRecipients } from "./reply-all-helpers.js";
@@ -372,8 +372,8 @@ async function main() {
                     }
                 }
 
-                // Check if we have attachments
-                if (validatedArgs.attachments && validatedArgs.attachments.length > 0) {
+                // Route attachment- or inline-image-bearing mail through the raw MIME builder
+                if (needsRawBuilder(validatedArgs)) {
                     // Use Nodemailer to create properly formatted RFC822 message
                     message = await createEmailWithNodemailer(validatedArgs);
                     
@@ -427,7 +427,7 @@ async function main() {
                         };
                     }
                 } else {
-                    // For emails without attachments, use the existing simple method
+                    // For plain / simple-HTML mail with no attachments or inline images
                     message = createEmailMessage(validatedArgs);
                     
                     const encodedMessage = Buffer.from(message).toString('base64')
@@ -481,9 +481,11 @@ async function main() {
                     }
                 }
             } catch (error: any) {
-                // Log attachment-related errors for debugging
-                if (validatedArgs.attachments && validatedArgs.attachments.length > 0) {
-                    console.error(`Failed to send email with ${validatedArgs.attachments.length} attachments:`, error.message);
+                // Log attachment / inline-image errors for debugging
+                if (needsRawBuilder(validatedArgs)) {
+                    const nAtt = validatedArgs.attachments?.length || 0;
+                    const nImg = validatedArgs.inlineImages?.length || 0;
+                    console.error(`Failed to send email with ${nAtt} attachment(s) and ${nImg} inline image(s):`, error.message);
                 }
                 throw error;
             }
@@ -774,7 +776,7 @@ async function main() {
 
                     // Build the new MIME message using the same helpers as draft_email/send_email
                     let message: string;
-                    if (messageArgs.attachments && messageArgs.attachments.length > 0) {
+                    if (needsRawBuilder(messageArgs)) {
                         message = await createEmailWithNodemailer(messageArgs);
                     } else {
                         message = createEmailMessage(messageArgs);
@@ -1620,6 +1622,7 @@ async function main() {
                         threadId: threadId,
                         inReplyTo: originalMessageId,
                         attachments: validatedArgs.attachments,
+                        inlineImages: validatedArgs.inlineImages,
                     };
 
                     // Use the existing handleEmailAction to send the reply

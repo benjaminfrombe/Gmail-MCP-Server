@@ -4,6 +4,13 @@ import { lookup as mimeLookup } from 'mime-types';
 import nodemailer from 'nodemailer';
 
 /**
+ * Upper bound on the decoded size of a base64 `content` inline image. Rejecting
+ * oversized payloads before nodemailer buffers them prevents host-process memory
+ * exhaustion. File-path images stream and are not subject to this check.
+ */
+export const MAX_INLINE_IMAGE_CONTENT_BYTES = 10 * 1024 * 1024;
+
+/**
  * Helper function to encode email headers containing non-ASCII characters
  * according to RFC 2047 MIME specification
  */
@@ -129,19 +136,64 @@ export async function createEmailWithNodemailer(validatedArgs: any): Promise<str
         buffer: true
     });
 
+    // Inline images can only be referenced from an HTML body via cid: URLs.
+    const inlineImages = validatedArgs.inlineImages || [];
+    if (inlineImages.length > 0 && !validatedArgs.htmlBody) {
+        throw new Error('inlineImages require htmlBody — a cid: reference only resolves from HTML content');
+    }
+
     // Prepare attachments for nodemailer
-    const attachments = [];
-    for (const filePath of validatedArgs.attachments) {
+    const attachments: any[] = [];
+    for (const filePath of (validatedArgs.attachments || [])) {
         if (!fs.existsSync(filePath)) {
             throw new Error(`File does not exist: ${filePath}`);
         }
-        
+
         const fileName = path.basename(filePath);
-        
+
         attachments.push({
             filename: fileName,
             path: filePath
         });
+    }
+
+    // Inline images: nodemailer emits a multipart/related container and sets
+    // Content-ID + Content-Disposition: inline for any attachment carrying a `cid`.
+    for (const img of inlineImages) {
+        // `cid` lands in a Content-ID header — strip CR/LF/NUL as defense in depth
+        // on top of the schema-level character restriction.
+        const cid = sanitizeHeaderValue(String(img.cid || ''));
+        if (!cid) {
+            throw new Error('Inline image cid must be a non-empty string');
+        }
+
+        const part: Record<string, unknown> = { cid };
+
+        if (img.path) {
+            if (!fs.existsSync(img.path)) {
+                throw new Error(`Inline image file does not exist: ${img.path}`);
+            }
+            part.path = img.path;
+            part.filename = img.filename || path.basename(img.path);
+        } else {
+            // Reject oversized base64 payloads before nodemailer buffers them in
+            // memory. Estimate decoded size from the base64 length (~3/4 ratio).
+            const estimatedBytes = Math.floor((String(img.content || '').length * 3) / 4);
+            if (estimatedBytes > MAX_INLINE_IMAGE_CONTENT_BYTES) {
+                throw new Error(
+                    `Inline image '${cid}' exceeds the ${MAX_INLINE_IMAGE_CONTENT_BYTES / (1024 * 1024)} MB size limit`,
+                );
+            }
+            part.content = img.content;
+            part.encoding = 'base64';
+            part.filename = img.filename || cid;
+        }
+
+        if (img.contentType) {
+            part.contentType = img.contentType;
+        }
+
+        attachments.push(part);
     }
 
     const mailOptions = {
@@ -160,7 +212,19 @@ export async function createEmailWithNodemailer(validatedArgs: any): Promise<str
     // Generate the raw message
     const info = await transporter.sendMail(mailOptions);
     const rawMessage = info.message.toString();
-    
+
     return rawMessage;
+}
+
+/**
+ * Decide which email builder to use. Messages carrying file attachments or
+ * inline images need the nodemailer-based raw builder (multipart/mixed and
+ * multipart/related); plain or simple HTML mail uses the lightweight
+ * createEmailMessage() builder.
+ */
+export function needsRawBuilder(args: any): boolean {
+    const hasAttachments = Array.isArray(args?.attachments) && args.attachments.length > 0;
+    const hasInlineImages = Array.isArray(args?.inlineImages) && args.inlineImages.length > 0;
+    return hasAttachments || hasInlineImages;
 }
 

@@ -2,6 +2,25 @@ import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 // Schema definitions
+
+// Inline image embedded in an HTML body and referenced via a cid: URL.
+// Exactly one of `path` / `content` must be set; `contentType` is required with `content`.
+export const InlineImageSchema = z.object({
+  cid: z.string().min(1).regex(/^[^\s<>]+$/, "cid must not contain whitespace or angle brackets")
+    .describe("Content-ID for the image, referenced from htmlBody as <img src=\"cid:CID\">"),
+  path: z.string().optional().describe("Absolute file path to the image (use this OR content)"),
+  content: z.string().optional().describe("Base64-encoded image data (use this OR path)"),
+  contentType: z.enum(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/bmp', 'image/x-icon']).optional()
+    .describe("Image MIME type — required when using `content`. SVG is intentionally unsupported."),
+  filename: z.string().optional().describe("Display filename for the image part (defaults derived from path or cid)"),
+})
+  .refine(d => (d.path ? 1 : 0) + (d.content ? 1 : 0) === 1, {
+    message: "Each inline image must set exactly one of `path` or `content`",
+  })
+  .refine(d => !d.content || !!d.contentType, {
+    message: "`contentType` is required when an inline image uses `content`",
+  });
+
 export const SendEmailSchema = z.object({
   to: z.array(z.string()).describe("List of recipient email addresses"),
   subject: z.string().describe("Email subject"),
@@ -14,6 +33,7 @@ export const SendEmailSchema = z.object({
   threadId: z.string().optional().describe("Thread ID to reply to"),
   inReplyTo: z.string().optional().describe("Message ID being replied to"),
   attachments: z.array(z.string()).optional().describe("List of file paths to attach to the email"),
+  inlineImages: z.array(InlineImageSchema).optional().describe("Images embedded inline in the HTML body, each referenced from htmlBody as <img src=\"cid:CID\">. Requires htmlBody to be set."),
 });
 
 export const ReadEmailSchema = z.object({
@@ -58,6 +78,7 @@ export const UpdateDraftSchema = z.object({
   threadId: z.string().optional().describe("Thread ID to reply to"),
   inReplyTo: z.string().optional().describe("Message ID being replied to"),
   attachments: z.array(z.string()).optional().describe("List of file paths to attach to the email"),
+  inlineImages: z.array(InlineImageSchema).optional().describe("Images embedded inline in the HTML body, each referenced from htmlBody as <img src=\"cid:CID\">. Requires htmlBody to be set."),
 });
 
 export const ListEmailLabelsSchema = z.object({}).describe("Retrieves all available Gmail labels");
@@ -194,6 +215,7 @@ export const ReplyAllSchema = z.object({
   htmlBody: z.string().optional().describe("HTML version of the reply body"),
   mimeType: z.enum(['text/plain', 'text/html', 'multipart/alternative']).optional().default('text/plain').describe("Email content type"),
   attachments: z.array(z.string()).optional().describe("List of file paths to attach to the reply"),
+  inlineImages: z.array(InlineImageSchema).optional().describe("Images embedded inline in the HTML body, each referenced from htmlBody as <img src=\"cid:CID\">. Requires htmlBody to be set."),
 });
 
 // Tool definition type
@@ -278,14 +300,14 @@ export const toolDefinitions: ToolDefinition[] = [
   // Email write operations
   {
     name: "send_email",
-    description: "Sends a new email",
+    description: "Sends a new email. Supports plain text, HTML, file attachments, and images embedded inline in the HTML body via inlineImages.",
     schema: SendEmailSchema,
     scopes: ["gmail.modify", "gmail.compose", "gmail.send"],
     annotations: { title: "Send Email", destructiveHint: false },
   },
   {
     name: "draft_email",
-    description: "Draft a new email",
+    description: "Draft a new email. Supports plain text, HTML, file attachments, and images embedded inline in the HTML body via inlineImages.",
     schema: SendEmailSchema,
     scopes: ["gmail.modify", "gmail.compose"],
     annotations: { title: "Draft Email", destructiveHint: false },
