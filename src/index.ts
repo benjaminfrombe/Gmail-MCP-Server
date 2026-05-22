@@ -21,6 +21,7 @@ import { parseEmailAddresses, filterOutEmail, addRePrefix, buildReferencesHeader
 import { DEFAULT_SCOPES, scopeNamesToUrls, parseScopes, validateScopes, hasScope, getAvailableScopeNames } from "./scopes.js";
 import { toolDefinitions, toMcpTools, getToolByName, SendEmailSchema, ReadEmailSchema, SearchEmailsSchema, ModifyEmailSchema, DeleteEmailSchema, BatchModifyEmailsSchema, ReportPhishingSchema, BatchReportPhishingSchema, BatchDeleteEmailsSchema, CreateLabelSchema, UpdateLabelSchema, DeleteLabelSchema, GetOrCreateLabelSchema, CreateFilterSchema, GetFilterSchema, DeleteFilterSchema, CreateFilterFromTemplateSchema, DownloadAttachmentSchema, ReplyAllSchema, GetThreadSchema, ListInboxThreadsSchema, GetInboxWithThreadsSchema, DownloadEmailSchema, ModifyThreadSchema, SendDraftSchema, DeleteDraftSchema, UpdateDraftSchema } from "./tools.js";
 import { gmailMessageToJson, emailToTxt, emailToHtml, EmailAttachment } from "./email-export.js";
+import { resolveToolPrefix } from "./tool-prefix.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -35,19 +36,7 @@ const CREDENTIALS_PATH = process.env.GMAIL_CREDENTIALS_PATH || path.join(CONFIG_
 // GMAIL_MCP_TOOL_PREFIX env var, then empty (no prefix → backward compatible).
 // Does not affect the `auth` subcommand, which is detected via process.argv[2] === 'auth'
 // and exits before the server starts — run `auth` without --tool-prefix.
-const TOOL_PREFIX = (() => {
-    const args = process.argv.slice(2);
-    for (let i = 0; i < args.length; i++) {
-        const arg = args[i] ?? '';
-        if (arg.startsWith('--tool-prefix=')) {
-            return arg.slice('--tool-prefix='.length);
-        }
-        if (arg === '--tool-prefix' && i + 1 < args.length) {
-            return args[i + 1] ?? '';
-        }
-    }
-    return process.env.GMAIL_MCP_TOOL_PREFIX || '';
-})();
+const TOOL_PREFIX = resolveToolPrefix(process.argv.slice(2), process.env);
 
 // Type definitions for Gmail API responses
 interface GmailMessagePart {
