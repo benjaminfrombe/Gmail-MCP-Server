@@ -267,9 +267,12 @@ The server automatically filters available tools based on your authorized scopes
 | `list_email_labels` | `gmail.readonly`, `gmail.modify`, or `gmail.labels` |
 | `send_email`, `draft_email`, `reply_all`, `send_draft` | `gmail.modify`, `gmail.compose`, or `gmail.send` |
 | `delete_draft`, `update_draft` | `gmail.modify` or `gmail.compose` |
-| `modify_email`, `delete_email`, `batch_modify_emails`, `batch_delete_emails`, `modify_thread`, `report_phishing`, `batch_report_phishing` | `gmail.modify` |
+| `modify_email`, `batch_modify_emails`, `modify_thread`, `report_phishing`, `batch_report_phishing` | `gmail.modify` |
+| `delete_email`, `batch_delete_emails` | `gmail.full` (`https://mail.google.com/`) |
 | `create_label`, `update_label`, `delete_label`, `get_or_create_label` | `gmail.modify` or `gmail.labels` |
 | `list_filters`, `get_filter`, `create_filter`, `delete_filter`, `create_filter_from_template` | `gmail.settings.basic` |
+
+`gmail.full` is intentionally separate from the default scopes because it grants permanent-delete capability. Prefer `modify_email` / `batch_modify_emails` for archive, mark-read, label, or inbox cleanup flows; re-authenticate with `--scopes=gmail.full,gmail.settings.basic` only when the assistant should be able to permanently delete mail.
 
 ### Re-authenticating
 
@@ -459,7 +462,7 @@ Adds or removes labels from emails (move to different folders, archive, etc.).
 ```
 
 ### 7. Delete Email (`delete_email`)
-Permanently deletes an email.
+Permanently deletes an email. This tool requires `gmail.full` (`https://mail.google.com/`); the default `gmail.modify` scope is not enough for Gmail's permanent-delete endpoint.
 
 ```json
 {
@@ -530,7 +533,7 @@ Modifies labels for multiple emails in efficient batches.
 ```
 
 ### 14. Batch Delete Emails (`batch_delete_emails`)
-Permanently deletes multiple emails in efficient batches.
+Permanently deletes multiple emails in efficient batches. This tool requires `gmail.full` (`https://mail.google.com/`); the default `gmail.modify` scope is not enough for Gmail's permanent-delete endpoint.
 
 ```json
 {
