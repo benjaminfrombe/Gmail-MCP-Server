@@ -131,6 +131,14 @@ npm run build
    > - Both Desktop app and Web application credentials are supported
    > - For Web application credentials, make sure to add `http://localhost:3000/oauth2callback` to your authorized redirect URIs
 
+   **Custom callback URL / port:** By default the local OAuth server listens on port `3000` at `/oauth2callback`. If port 3000 is unavailable, or you need a different redirect URI, pass a full callback URL as an argument. The listener automatically binds to the port and path from that URL:
+
+   ```bash
+   node dist/index.js auth http://localhost:8080/oauth2callback
+   ```
+
+   The URL you pass must exactly match one of the authorized redirect URIs registered in the Google Cloud Console.
+
 3. Configure in Claude Desktop:
 
 ```json
@@ -970,8 +978,9 @@ The server includes efficient batch processing capabilities:
    - For web applications, verify the redirect URI is correctly configured
 
 3. **Port Already in Use**
-   - If port 3000 is already in use, please free it up before running authentication
-   - You can find and stop the process using that port
+   - By default authentication uses port 3000; either free it up before running authentication, or run on a different port by passing a custom callback URL (e.g. `node dist/index.js auth http://localhost:8080/oauth2callback`)
+   - If freeing port 3000, you can find and stop the process using that port
+   - A custom callback URL must match one of the authorized redirect URIs registered in the Google Cloud Console
 
 4. **Batch Operation Failures**
    - If batch operations fail, they automatically retry individual items
