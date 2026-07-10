@@ -180,6 +180,13 @@ async function loadCredentials() {
         const callback = callbackArg || "http://localhost:3000/oauth2callback";
         callbackUrl = new URL(callback);
 
+        // The built-in listener is plain HTTP; an https:// callback would make the
+        // browser attempt TLS against it and hang without an error.
+        if (callbackUrl.protocol !== 'http:') {
+            console.error(`Error: callback URL must use http:// for the built-in listener (got ${callbackUrl.protocol}//). Example: http://localhost:8080/oauth2callback`);
+            process.exit(1);
+        }
+
         oauth2Client = new OAuth2Client(
             keys.client_id,
             keys.client_secret,
@@ -231,7 +238,10 @@ async function loadCredentials() {
 
 async function authenticate(scopes: string[]) {
     const server = http.createServer();
-    const port = Number(callbackUrl.port) || 3000;
+    // URL.port is '' when the URL omits an explicit port — that means the
+    // protocol default (80 for http), NOT 3000; falling back to 3000 there
+    // would recreate the silent-hang bug this derivation exists to fix.
+    const port = callbackUrl.port ? Number(callbackUrl.port) : 80;
     server.listen(port, '127.0.0.1');
 
     // Convert shorthand scope names (e.g., "gmail.readonly") to full Google API URLs
