@@ -201,6 +201,25 @@ async function loadCredentials() {
             if (credentials.scopes) {
                 authorizedScopes = credentials.scopes;
             }
+
+            // Persist refreshed tokens so refresh_token survives access_token rotation.
+            // Without this, google-auth-library's silent refresh updates only the
+            // in-memory client; on next process start we'd re-read a stale token.
+            oauth2Client.on('tokens', (newTokens) => {
+                try {
+                    const onDisk = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
+                    const currentTokens = onDisk.tokens || onDisk;
+                    const mergedTokens = newTokens.refresh_token
+                        ? { ...currentTokens, ...newTokens }
+                        : { ...currentTokens, access_token: newTokens.access_token, expiry_date: newTokens.expiry_date };
+                    const updated = onDisk.tokens
+                        ? { ...onDisk, tokens: mergedTokens }
+                        : mergedTokens;
+                    fs.writeFileSync(CREDENTIALS_PATH, JSON.stringify(updated, null, 2), { mode: 0o600 });
+                } catch (err) {
+                    console.error('Failed to persist refreshed tokens:', err);
+                }
+            });
         }
     } catch (error) {
         console.error('Error loading credentials:', error);
@@ -218,6 +237,7 @@ async function authenticate(scopes: string[]) {
     return new Promise<void>((resolve, reject) => {
         const authUrl = oauth2Client.generateAuthUrl({
             access_type: 'offline',
+            prompt: 'consent',
             scope: scopeUrls,
         });
 
