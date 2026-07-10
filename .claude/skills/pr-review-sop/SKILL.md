@@ -60,7 +60,8 @@ MISMATCH handling: don't build it, don't merge it - comment kindly, point to klo
 
 ### Step 6: Present Findings
 - Each PR gets: security verdict, **philosophy verdict**, comment summary, label status, code review findings, recommendation (approve/request changes/close).
-- **All tables (PRs and issues) MUST include the author/opener name.** Never omit who created the PR or issue - the user needs this for context.
+- **All tables (PRs and issues) MUST include the author/opener name AND the created date** (last-update date too when it differs meaningfully). Never omit who created the PR/issue or when - the user needs both for context.
+- **Pitch decisions in Angry King style by default** (`~/.claude/output-styles/angry-king.md`): one PR at a time, self-contained ≤300-char pitch with date + author, closed A/B/C options, `→ rec:` marked. No technical detail unless asked.
 
 ## Merge Flow (When Approving)
 
