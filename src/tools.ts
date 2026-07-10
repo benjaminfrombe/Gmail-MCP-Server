@@ -342,9 +342,9 @@ export const toolDefinitions: ToolDefinition[] = [
   },
   {
     name: "delete_email",
-    description: "Permanently deletes an email",
+    description: "Permanently deletes an email. Requires gmail.full because Gmail's delete endpoint is not covered by gmail.modify.",
     schema: DeleteEmailSchema,
-    scopes: ["gmail.modify"],
+    scopes: ["gmail.full"],
     annotations: { title: "Delete Email", destructiveHint: true },
   },
   {
@@ -370,9 +370,9 @@ export const toolDefinitions: ToolDefinition[] = [
   },
   {
     name: "batch_delete_emails",
-    description: "Permanently deletes multiple emails in batches",
+    description: "Permanently deletes multiple emails in batches. Requires gmail.full because Gmail's batchDelete endpoint is not covered by gmail.modify.",
     schema: BatchDeleteEmailsSchema,
-    scopes: ["gmail.modify"],
+    scopes: ["gmail.full"],
     annotations: { title: "Batch Delete Emails", destructiveHint: true },
   },
 

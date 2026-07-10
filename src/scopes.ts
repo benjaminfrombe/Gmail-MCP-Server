@@ -7,6 +7,7 @@
 //   - gmail.send: Send emails only
 //   - gmail.labels: Manage labels only
 //   - gmail.settings.basic: Manage filters and settings
+//   - gmail.full: Full mailbox access, including permanent deletion
 //
 // Note: gmail.modify includes all capabilities of gmail.readonly,
 // so you don't need both scopes together.
@@ -18,6 +19,7 @@ export const SCOPE_MAP: Record<string, string> = {
   "gmail.compose": "https://www.googleapis.com/auth/gmail.compose",
   "gmail.send": "https://www.googleapis.com/auth/gmail.send",
   "gmail.labels": "https://www.googleapis.com/auth/gmail.labels",
+  "gmail.full": "https://mail.google.com/",
   "gmail.settings.basic": "https://www.googleapis.com/auth/gmail.settings.basic",
   "gmail.settings.sharing": "https://www.googleapis.com/auth/gmail.settings.sharing",
 };
