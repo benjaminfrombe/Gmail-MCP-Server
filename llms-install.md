@@ -41,6 +41,12 @@ This guide will help you install and configure the Gmail AutoAuth MCP server for
    - Launch browser for Google authentication
    - Save credentials as ~/.gmail-mcp/credentials.json
 
+   By default the local OAuth server listens on port 3000 at /oauth2callback. To use a different port or path (for example if port 3000 is unavailable), pass a full callback URL; the listener binds to the port and path from that URL:
+   ```bash
+   npx @gongrzhe/server-gmail-autoauth-mcp auth http://localhost:8080/oauth2callback
+   ```
+   The URL must exactly match one of the authorized redirect URIs registered in the Google Cloud Console.
+
 4. Configure Claude Desktop by adding the MCP server configuration:
    ```json
    {
@@ -67,7 +73,7 @@ If you encounter any issues during installation:
 2. Authentication Errors:
    - Confirm Gmail API is enabled
    - For web applications, verify redirect URI configuration
-   - Check port 3000 is available during authentication
+   - Check port 3000 is available during authentication, or pass a custom callback URL to use a different port (e.g. `auth http://localhost:8080/oauth2callback`)
 
 3. Configuration Issues:
    - Verify ~/.gmail-mcp directory exists and has correct permissions

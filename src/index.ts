@@ -63,6 +63,7 @@ interface EmailContent {
 // OAuth2 configuration
 let oauth2Client: OAuth2Client;
 let authorizedScopes: string[] = DEFAULT_SCOPES;
+let callbackUrl: URL;
 
 /**
  * Recursively extract email body content from MIME message parts
@@ -177,6 +178,7 @@ async function loadCredentials() {
             arg.startsWith('http://') || arg.startsWith('https://')
         );
         const callback = callbackArg || "http://localhost:3000/oauth2callback";
+        callbackUrl = new URL(callback);
 
         oauth2Client = new OAuth2Client(
             keys.client_id,
@@ -229,7 +231,8 @@ async function loadCredentials() {
 
 async function authenticate(scopes: string[]) {
     const server = http.createServer();
-    server.listen(3000, '127.0.0.1');
+    const port = Number(callbackUrl.port) || 3000;
+    server.listen(port, '127.0.0.1');
 
     // Convert shorthand scope names (e.g., "gmail.readonly") to full Google API URLs
     const scopeUrls = scopeNamesToUrls(scopes);
@@ -246,9 +249,9 @@ async function authenticate(scopes: string[]) {
         open(authUrl);
 
         server.on('request', async (req, res) => {
-            if (!req.url?.startsWith('/oauth2callback')) return;
+            if (!req.url?.startsWith(callbackUrl.pathname)) return;
 
-            const url = new URL(req.url, 'http://localhost:3000');
+            const url = new URL(req.url, callbackUrl.origin);
             const code = url.searchParams.get('code');
 
             if (!code) {
