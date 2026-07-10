@@ -36,7 +36,7 @@ Published as **@artymclabin/gmail-mcp** on npm + **io.github.ArtyMcLabin/Gmail-M
 - **Tags are cut from `main` ONLY.** Pushing a `v*` tag triggers `.github/workflows/publish.yml` -> npm publish. Never tag `experimental` (incident 2026-07-11: v1.2.0/v1.2.1 tagged off experimental put unsoaked staging code on npm as `latest`; resolved by same-day promotion).
 - **Release procedure (at promotion):** merge `experimental`->`main` -> bump version in package.json + package-lock.json + server.json (both `version` fields) -> commit on main -> `git tag vX.Y.Z && git push origin vX.Y.Z` -> verify publish workflow green + `npm view @artymclabin/gmail-mcp version` -> `mcp-publisher publish` from repo root to update the MCP Registry (login: `mcp-publisher login github`, device flow).
 - `mcpName` in package.json must always equal `name` in server.json (registry ownership validation).
-- **NPM_TOKEN secret** expires 2026-10-09; rotation + real-2FA enrollment tracked in issue #44.
+- **NPM_TOKEN secret** rotation is tracked in the maintainer's PRIVATE task tracker (Personal CRM) - 🚨 NEVER document token/auth posture details (expiry dates, 2FA state, token types) in this public repo, including GitHub issues (incident 2026-07-11: such an issue was created and had to be deleted - supply-chain recon risk).
 
 ## PR Review Checklist (All Steps Mandatory)
 

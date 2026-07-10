@@ -1,7 +1,7 @@
 name: Publish to npm
 
 # Publishes @artymclabin/gmail-mcp when a v* tag is pushed.
-# Requires the NPM_TOKEN repo secret (granular npm token, expires 2026-10-09 — rotate before then).
+# Requires the NPM_TOKEN repo secret.
 on:
   push:
     tags: ['v*']
