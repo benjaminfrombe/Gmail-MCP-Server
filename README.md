@@ -70,7 +70,13 @@ A Model Context Protocol (MCP) server for Gmail integration in Claude Desktop wi
 
 ## Installation & Authentication
 
-### Installing from this fork
+### Installing from npm (recommended)
+
+```bash
+npx @artymclabin/gmail-mcp auth
+```
+
+### Installing from source
 
 ```bash
 git clone https://github.com/ArtyMcLabin/Gmail-MCP-Server.git
@@ -79,7 +85,7 @@ npm install
 npm run build
 ```
 
-> **Note**: The `npx @gongrzhe/server-gmail-autoauth-mcp` commands found in older docs reference the [unmaintained upstream fork](https://github.com/GongRzhe/Gmail-MCP-Server). To use **this** fork's features, install from source as shown above.
+> **Note**: The `npx @gongrzhe/server-gmail-autoauth-mcp` commands found in older docs reference the [unmaintained upstream fork](https://github.com/GongRzhe/Gmail-MCP-Server). This fork is published as [`@artymclabin/gmail-mcp`](https://www.npmjs.com/package/@artymclabin/gmail-mcp).
 
 ### Setting up Google Cloud credentials
 

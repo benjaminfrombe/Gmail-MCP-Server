@@ -180,11 +180,12 @@ async function loadCredentials() {
         const callback = callbackArg || "http://localhost:3000/oauth2callback";
         callbackUrl = new URL(callback);
 
-        // The built-in listener is plain HTTP; an https:// callback would make the
-        // browser attempt TLS against it and hang without an error.
-        if (callbackUrl.protocol !== 'http:') {
-            console.error(`Error: callback URL must use http:// for the built-in listener (got ${callbackUrl.protocol}//). Example: http://localhost:8080/oauth2callback`);
-            process.exit(1);
+        // The built-in listener is plain HTTP. An https:// callback is only valid
+        // in the documented reverse-proxy setup (README "Cloud Server Authentication"),
+        // where TLS terminates at the proxy and traffic is forwarded to the local
+        // listener on port 3000. Direct browser->listener https would hang.
+        if (callbackUrl.protocol === 'https:') {
+            console.log('https callback URL detected: assuming a reverse proxy terminates TLS and forwards to the local listener on port 3000 (see README "Cloud Server Authentication").');
         }
 
         oauth2Client = new OAuth2Client(
@@ -238,10 +239,15 @@ async function loadCredentials() {
 
 async function authenticate(scopes: string[]) {
     const server = http.createServer();
-    // URL.port is '' when the URL omits an explicit port — that means the
-    // protocol default (80 for http), NOT 3000; falling back to 3000 there
-    // would recreate the silent-hang bug this derivation exists to fix.
-    const port = callbackUrl.port ? Number(callbackUrl.port) : 80;
+    // Port derivation:
+    // - explicit port in the callback URL -> use it
+    // - portless http -> protocol default 80 (NOT 3000 — that fallback caused
+    //   the silent-hang bug this derivation exists to fix)
+    // - https -> reverse-proxy setup; the proxy forwards to the local listener
+    //   on 3000 (documented default in README "Cloud Server Authentication")
+    const port = callbackUrl.port
+        ? Number(callbackUrl.port)
+        : (callbackUrl.protocol === 'https:' ? 3000 : 80);
     server.listen(port, '127.0.0.1');
 
     // Convert shorthand scope names (e.g., "gmail.readonly") to full Google API URLs
