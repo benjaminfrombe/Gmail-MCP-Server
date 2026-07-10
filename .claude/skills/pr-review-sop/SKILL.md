@@ -17,7 +17,7 @@ Heuristics:
 - **MISMATCH (default decline + redirect to klodr fork):** new feature surface the maintainer wouldn't use daily, new dependencies, infra/deployment expansion (Docker images, hosting), hardening classes the local threat model explicitly excludes (see Security Standards below), capabilities with an existing simple workaround (e.g. registering the server twice ≈ multi-account).
 - **NEUTRAL:** repo hygiene, triage, support/environmental issues, distribution of the existing lean server.
 
-MISMATCH handling: don't build it, don't merge it - comment kindly, point to klodr/gmail-mcp, close. Maintainer can override per item.
+MISMATCH handling: don't build it, don't merge it. **Pitch the item to the maintainer FIRST (angry-king style) and close only after his explicit call** - never auto-close a contributor's PR/issue on philosophy grounds alone (Arty directive 2026-07-10: outward-facing closures are his judgment, MISMATCH verdict or not). Once he says close: comment kindly, point to klodr/gmail-mcp, close.
 
 ## Branch Workflow
 
@@ -84,7 +84,7 @@ After merging a PR that adds new tools or features, rebuild from source (`npm ru
 
 ## Staleness Policy
 
-- PRs with "help wanted" label: keep open for up to 6 months. Close if no community participation by then.
+- PRs with "help wanted" label: keep open for up to **8 months from creation** (Arty directive 2026-07-10, supersedes the earlier 6-month rule). Close as stale if no community participation by then.
 - Stale PRs without label: assess on a case-by-case basis.
 
 ## Issue Review (Same Rules Apply)
