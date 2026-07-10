@@ -27,6 +27,16 @@ MISMATCH handling: don't build it, don't merge it. **Pitch the item to the maint
 2. PR merges and own changes go into `experimental` first. Never merge PRs directly into `main`.
 3. After a batch is complete on `experimental`: wait for user confirmation, then merge `experimental` → `main`.
 4. **After every push to any branch:** run `gh run list --branch {branch} --limit 1` and verify CI passes. If CI fails, fix immediately - do NOT leave broken CI for the user to discover. This applies to every `git push` in the session, not just merges.
+5. **End of each dev round (batch merged to `experimental`, awaiting soak):** create a task in the user's Personal CRM (`mcp__claude_ai_Personal_CRM__crm_create_task`, load via ToolSearch) titled "Promote Gmail-MCP experimental→main if soak clean", due ~1 week out (or whatever fits the round's size). The user tracks promotions there, not in GitHub. (Arty directive 2026-07-11.)
+
+## npm & MCP Registry Releases
+
+Published as **@artymclabin/gmail-mcp** on npm + **io.github.ArtyMcLabin/Gmail-MCP-Server** on the official MCP Registry.
+
+- **Tags are cut from `main` ONLY.** Pushing a `v*` tag triggers `.github/workflows/publish.yml` -> npm publish. Never tag `experimental` (incident 2026-07-11: v1.2.0/v1.2.1 tagged off experimental put unsoaked staging code on npm as `latest`; resolved by same-day promotion).
+- **Release procedure (at promotion):** merge `experimental`->`main` -> bump version in package.json + package-lock.json + server.json (both `version` fields) -> commit on main -> `git tag vX.Y.Z && git push origin vX.Y.Z` -> verify publish workflow green + `npm view @artymclabin/gmail-mcp version` -> `mcp-publisher publish` from repo root to update the MCP Registry (login: `mcp-publisher login github`, device flow).
+- `mcpName` in package.json must always equal `name` in server.json (registry ownership validation).
+- **NPM_TOKEN secret** expires 2026-10-09; rotation + real-2FA enrollment tracked in issue #44.
 
 ## PR Review Checklist (All Steps Mandatory)
 
