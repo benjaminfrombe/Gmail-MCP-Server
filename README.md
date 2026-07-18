@@ -1,3 +1,5 @@
+![Gmail MCP Server](assets/banner.jpg)
+
 # Gmail MCP Server (Actively Maintained Fork)
 
 **Installation:** `npx @artymclabin/gmail-mcp auth` - or just tell your Claude to install the MCP from this repo (`https://github.com/ArtyMcLabin/Gmail-MCP-Server`) and let it set up. Prefer manual steps? See [Installation & Authentication](#installation--authentication).
