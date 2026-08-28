@@ -118,6 +118,25 @@ function extractHeaders(payload: any): { subject: string; from: string; to: stri
     };
 }
 
+// Most filesystems cap filenames at 255 bytes. Gmail attachment IDs for larger
+// attachments can be ~500 chars, so a fallback name like `attachment-<id>`
+// would exceed that and fail with ENAMETOOLONG on write.
+const MAX_FILENAME_LENGTH = 200;
+
+function sanitizeFilename(filename: string): string {
+    let name = path.basename(filename);
+    if (Buffer.byteLength(name) <= MAX_FILENAME_LENGTH) {
+        return name;
+    }
+    const ext = path.extname(name);
+    const stem = name.slice(0, MAX_FILENAME_LENGTH - Buffer.byteLength(ext));
+    return stem + ext;
+}
+
+function fallbackAttachmentName(attachmentId: string): string {
+    return sanitizeFilename(`attachment-${attachmentId.slice(0, 16)}`);
+}
+
 /**
  * Extract attachments from Gmail message payload
  */
@@ -1312,7 +1331,7 @@ async function main() {
                             // Find the attachment part to get original filename
                             const findAttachment = (part: any): string | null => {
                                 if (part.body && part.body.attachmentId === validatedArgs.attachmentId) {
-                                    return part.filename || `attachment-${validatedArgs.attachmentId}`;
+                                    return part.filename || fallbackAttachmentName(validatedArgs.attachmentId);
                                 }
                                 if (part.parts) {
                                     for (const subpart of part.parts) {
@@ -1323,11 +1342,11 @@ async function main() {
                                 return null;
                             };
 
-                            filename = findAttachment(messageResponse.data.payload) || `attachment-${validatedArgs.attachmentId}`;
+                            filename = findAttachment(messageResponse.data.payload) || fallbackAttachmentName(validatedArgs.attachmentId);
                         }
 
                         // Sanitize filename to prevent path traversal
-                        filename = path.basename(filename);
+                        filename = sanitizeFilename(filename);
 
                         // Ensure save directory exists
                         if (!fs.existsSync(savePath)) {
