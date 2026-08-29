@@ -355,6 +355,43 @@ async function main() {
     // Initialize Gmail API
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
+    // users.threads.list with a query silently omits threads that contain
+    // messages sent by the user (Gmail API quirk), so any thread you replied
+    // to disappears from query-based thread listings. Work around it by
+    // searching messages instead and collecting unique thread IDs in order.
+    async function resolveThreadIdsFromQuery(
+        gmailClient: typeof gmail,
+        query: string,
+        maxResults: number,
+    ): Promise<string[]> {
+        const threadIds: string[] = [];
+        const seen = new Set<string>();
+        let pageToken: string | undefined;
+
+        while (threadIds.length < maxResults) {
+            const response = await gmailClient.users.messages.list({
+                userId: 'me',
+                q: query,
+                maxResults: Math.min(500, Math.max(50, maxResults * 2)),
+                pageToken,
+            });
+
+            for (const message of response.data.messages || []) {
+                const threadId = message.threadId;
+                if (threadId && !seen.has(threadId)) {
+                    seen.add(threadId);
+                    threadIds.push(threadId);
+                    if (threadIds.length >= maxResults) break;
+                }
+            }
+
+            pageToken = response.data.nextPageToken || undefined;
+            if (!pageToken) break;
+        }
+
+        return threadIds;
+    }
+
     // Server implementation
     const server = new Server(
         {
@@ -1463,13 +1500,17 @@ async function main() {
 
                 case "list_inbox_threads": {
                     const validatedArgs = ListInboxThreadsSchema.parse(args);
-                    const threadsResponse = await gmail.users.threads.list({
-                        userId: 'me',
-                        q: validatedArgs.query || 'in:inbox',
-                        maxResults: validatedArgs.maxResults || 50,
-                    });
+                    // Resolve thread IDs via messages.list: users.threads.list with a
+                    // query silently drops threads that contain messages sent by the
+                    // user (e.g. any thread you replied to), so we search messages
+                    // instead and group them by thread.
+                    const threadIds = await resolveThreadIdsFromQuery(
+                        gmail,
+                        validatedArgs.query || 'in:inbox',
+                        validatedArgs.maxResults || 50,
+                    );
 
-                    const threads = threadsResponse.data.threads || [];
+                    const threads = threadIds.map(id => ({ id, snippet: '', historyId: '' }));
 
                     // Fetch metadata for each thread to get message count and latest message info
                     const threadDetails = await Promise.all(
@@ -1487,8 +1528,8 @@ async function main() {
 
                             return {
                                 threadId: thread.id || '',
-                                snippet: thread.snippet || '',
-                                historyId: thread.historyId || '',
+                                snippet: detail.data.snippet || '',
+                                historyId: detail.data.historyId || '',
                                 messageCount: messages.length,
                                 latestMessage: {
                                     from: latestHeaders.find(h => h.name === 'From')?.value || '',
@@ -1514,13 +1555,14 @@ async function main() {
 
                 case "get_inbox_with_threads": {
                     const validatedArgs = GetInboxWithThreadsSchema.parse(args);
-                    const threadsResponse = await gmail.users.threads.list({
-                        userId: 'me',
-                        q: validatedArgs.query || 'in:inbox',
-                        maxResults: validatedArgs.maxResults || 50,
-                    });
+                    // Same threads.list quirk as list_inbox_threads: resolve via messages.list.
+                    const threadIds = await resolveThreadIdsFromQuery(
+                        gmail,
+                        validatedArgs.query || 'in:inbox',
+                        validatedArgs.maxResults || 50,
+                    );
 
-                    const threads = threadsResponse.data.threads || [];
+                    const threads = threadIds.map(id => ({ id, snippet: '', historyId: '' }));
 
                     if (!validatedArgs.expandThreads) {
                         // Return basic thread list without expansion (same as list_inbox_threads)
@@ -1539,8 +1581,8 @@ async function main() {
 
                                 return {
                                     threadId: thread.id || '',
-                                    snippet: thread.snippet || '',
-                                    historyId: thread.historyId || '',
+                                    snippet: detail.data.snippet || '',
+                                    historyId: detail.data.historyId || '',
                                     messageCount: messages.length,
                                     latestMessage: {
                                         from: latestHeaders.find(h => h.name === 'From')?.value || '',
